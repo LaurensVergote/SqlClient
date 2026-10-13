@@ -357,10 +357,10 @@ sources are embedded and the compiler's deterministic flag is enabled.
 ## OneBranch Validation
 
 The non-official OneBranch pipeline defaults **Fail on validation errors**
-(`failOnValidationError`) to `false`. Localization, XML documentation, and package
-validation still run, but findings are reported as warnings so pending translations
-do not block the rest of a development build. Select `true` at queue time for a
-strict validation run. Official builds always use `true`.
+(`failOnValidationError`) to `true`. Localization, XML documentation, and package
+validation findings fail the build by default. Select `false` at queue time to
+report findings as warnings so pending translations do not block the rest of a
+development build. Official builds always use `true`.
 
 This flag is independent of **Fail on SDL errors** (`failOnSdlError`). Neither flag
 turns missing or malformed validation inputs into success. Localization report-only

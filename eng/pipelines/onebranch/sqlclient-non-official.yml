@@ -33,13 +33,13 @@ parameters:
   #
   # Validation covers XML documentation cross-references, localized resources, and the produced
   # NuGet packages.  Those gates run at several points across the build, so a hard failure at the
-  # first one prevents the rest from running. Non-official runs default to report-only so pending
-  # translations do not block later validation. Set this true for a strict validation run.
+  # first one prevents the rest from running. Set this false for a report-only run so pending
+  # translations do not block later validation. Validation is strict by default.
   # Missing or malformed validator inputs still fail. This is independent of failOnSdlError.
   - name: failOnValidationError
     displayName: Fail on validation errors
     type: boolean
-    default: false
+    default: true
 
   # True to publish symbols to private and public servers.
   - name: publishSymbols
