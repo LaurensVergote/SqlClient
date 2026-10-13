@@ -1,0 +1,54 @@
+#################################################################################
+# Licensed to the .NET Foundation under one or more agreements.                 #
+# The .NET Foundation licenses this file to you under the MIT license.          #
+# See the LICENSE file in the project root for more information.                #
+#################################################################################
+
+# Consumer build regressions need the SDK and package fixtures, but no SQL Server.
+# test-stages.yml schedules this job only for modern Windows/Linux platforms.
+parameters:
+  # Used in job and result-directory names to isolate parallel platform runs.
+  - name: platformDisplayName
+    type: string
+
+  - name: poolImage
+    type: string
+
+  - name: poolName
+    type: string
+
+  # Keep the artifact naming consistent with the other PR test jobs.
+  - name: testResultsArtifactBaseName
+    type: string
+
+jobs:
+  - job: "test_${{ parameters.platformDisplayName }}_logging"
+    displayName: "logging_${{ parameters.platformDisplayName }}"
+
+    variables:
+      - name: testResultsPath
+        value: "$(Build.SourcesDirectory)/test_results/${{ parameters.platformDisplayName }}_logging"
+
+    pool:
+      name: ${{ parameters.poolName }}
+      demands:
+        - imageOverride -equals ${{ parameters.poolImage }}
+
+    steps:
+      # The SDK builds fixture consumers; local tool restoration supplies pinned PowerShell.
+      - template: /eng/pipelines/common/steps/install-dotnet.yml@self
+
+      - template: /eng/pipelines/common/steps/restore-dotnet-tools.yml@self
+
+      # Share Pester execution and failure-gated NUnit publication with OneBranch validation.
+      - template: /eng/pipelines/common/steps/test-family-versions.yml@self
+        parameters:
+          testResultsPath: '$(testResultsPath)/family-versions.xml'
+
+      # Preserve results on failure. Job/attempt suffixes avoid platform and rerun collisions.
+      - task: PublishPipelineArtifact@1
+        displayName: Publish Logging Test Artifacts
+        condition: succeededOrFailed()
+        inputs:
+          artifact: ${{ parameters.testResultsArtifactBaseName }}_$(System.JobId)_attempt$(System.JobAttempt)
+          targetPath: $(testResultsPath)

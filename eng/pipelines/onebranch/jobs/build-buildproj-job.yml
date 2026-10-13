@@ -154,6 +154,7 @@ jobs:
       - template: /eng/pipelines/onebranch/steps/script-output-environment-variables-step.yml@self
 
       # Validate each resource-owning assembly before analysis and building.
+      # The shared validation flag controls whether findings fail or warn.
       - ${{ if eq(parameters.packageShortName, 'SqlClient') }}:
         - template: /eng/pipelines/onebranch/steps/validate-localization-step.yml@self
           parameters:

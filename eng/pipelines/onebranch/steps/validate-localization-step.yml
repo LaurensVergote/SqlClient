@@ -9,6 +9,7 @@ parameters:
   # the step succeeds.
   - name: failOnValidationError
     type: boolean
+  # Each resource owner supplies its directory and isolated exception set explicitly.
   - name: resourcesDirectory
     type: string
   - name: allowlistSection
