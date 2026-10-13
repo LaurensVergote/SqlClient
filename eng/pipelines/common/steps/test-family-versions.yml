@@ -1,0 +1,50 @@
+# Licensed to the .NET Foundation under one or more agreements.
+# The .NET Foundation licenses this file to you under the MIT license.
+# See the LICENSE file in the project root for more information.
+
+# Call from a test/validation job after installing the SDK and restoring local tools.
+parameters:
+  - name: testResultsPath
+    type: string
+
+steps:
+  - task: DotNetCoreCLI@2
+    displayName: Install family-version test prerequisites
+    inputs:
+      command: custom
+      custom: tool
+      arguments: >-
+        run pwsh -NoProfile -NonInteractive -Command
+        "Install-Module Pester -RequiredVersion 5.7.1 -Repository PSGallery -Scope CurrentUser -Force -ErrorAction Stop"
+      workingDirectory: $(Build.SourcesDirectory)
+
+  - task: DotNetCoreCLI@2
+    displayName: Test installed SqlClient family versions
+    inputs:
+      command: custom
+      custom: tool
+      workingDirectory: $(Build.SourcesDirectory)
+      # The task passes this directly to dotnet, without an outer shell expanding PowerShell variables.
+      arguments: >-
+        run pwsh -NoProfile -NonInteractive -Command
+        "$ErrorActionPreference = 'Stop';
+        Import-Module Pester -RequiredVersion 5.7.1 -ErrorAction Stop;
+        $configuration = New-PesterConfiguration;
+        $configuration.Run.Path = 'src/Microsoft.Data.SqlClient.Internal/Logging/test/VersionChecks.Tests.ps1';
+        $configuration.Run.Exit = $true;
+        $configuration.Output.Verbosity = 'Normal';
+        $configuration.TestDrive.Enabled = $false;
+        $configuration.TestResult.Enabled = $true;
+        $configuration.TestResult.OutputFormat = 'NUnitXml';
+        $configuration.TestResult.OutputPath = '${{ parameters.testResultsPath }}';
+        Invoke-Pester -Configuration $configuration"
+
+  - task: PublishTestResults@2
+    displayName: Publish family-version test results
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: NUnit
+      testResultsFiles: '${{ parameters.testResultsPath }}'
+      testRunTitle: SqlClient family-version validation
+      failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true

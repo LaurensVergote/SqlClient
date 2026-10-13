@@ -60,6 +60,22 @@ Describe 'validate-localization.ps1' {
             Should -Throw "*must define 'AbstractionsAllowedEnglishValueMatches'*"
     }
 
+    It 'honors an English-match exception only in the selected resource-set section' {
+        $resources = New-ResourcesDirectory
+        Set-ResourceFile (Join-Path $resources 'Strings.resx') @{ Greeting = 'Hello' }
+        Set-ResourceFile (Join-Path $resources 'Strings.fr.resx') @{ Greeting = 'Hello' }
+        $allowlist = Join-Path $resources 'allowlist.json'
+        @{
+            AllowedEnglishValueMatches = @{}
+            AbstractionsAllowedEnglishValueMatches = @{ 'Strings.fr.resx' = @('Greeting') }
+        } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $allowlist
+
+        { & $scriptPath -ResourcesDirectory $resources -AllowlistPath $allowlist `
+            -AllowlistSection AbstractionsAllowedEnglishValueMatches } | Should -Not -Throw
+        { & $scriptPath -ResourcesDirectory $resources -AllowlistPath $allowlist } |
+            Should -Throw '*Localization validation failed with 1 error*'
+    }
+
     It 'accepts complete localized files with translated values' {
         $resources = New-ResourcesDirectory
         Set-ResourceFile (Join-Path $resources 'Strings.resx') @{ Greeting = 'Hello'; Farewell = 'Goodbye' }
