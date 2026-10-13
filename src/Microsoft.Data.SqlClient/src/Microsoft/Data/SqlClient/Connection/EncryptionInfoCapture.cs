@@ -95,6 +95,13 @@ namespace Microsoft.Data.SqlClient.Connection
             CertificateHash256 = capture.Hash256;
             ValidationErrors = capture.ValidationErrors;
             ChainStatus = capture.ChainStatus;
+
+            // A protocol already determined for this attempt takes precedence over one reported
+            // alongside the certificate details.
+            if (Protocol is null && capture.Protocol is SslProtocols protocol && protocol != SslProtocols.None)
+            {
+                Protocol = protocol;
+            }
         }
 
         /// <summary>
@@ -114,12 +121,16 @@ namespace Microsoft.Data.SqlClient.Connection
         /// <param name="mode">The negotiated encryption mode.</param>
         /// <param name="protocol">
         /// The negotiated TLS protocol. A value of <c>0</c> (<see cref="SslProtocols.None"/>) means the
-        /// protocol was not reported and is recorded as unavailable.
+        /// protocol was not reported; any protocol already reported by the transport for this attempt
+        /// is kept, otherwise the protocol remains unavailable.
         /// </param>
         public void Record(SqlConnectionEncryptionMode mode, SslProtocols protocol)
         {
             Mode = mode;
-            Protocol = protocol == SslProtocols.None ? null : protocol;
+            if (protocol != SslProtocols.None)
+            {
+                Protocol = protocol;
+            }
         }
 
         /// <summary>

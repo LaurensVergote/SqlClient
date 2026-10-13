@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
 #nullable enable
@@ -23,11 +24,13 @@ namespace Microsoft.Data.SqlClient.Connection
         internal ServerCertificateCapture(
             byte[]? hash256,
             SqlServerCertificateValidationErrors? validationErrors,
-            X509ChainStatusFlags? chainStatus)
+            X509ChainStatusFlags? chainStatus,
+            SslProtocols? protocol = null)
         {
             Hash256 = hash256;
             ValidationErrors = validationErrors;
             ChainStatus = chainStatus;
+            Protocol = protocol;
         }
 
         /// <summary>
@@ -47,5 +50,12 @@ namespace Microsoft.Data.SqlClient.Connection
         /// callback, or <see langword="null"/> if the chain was not consulted or is unavailable.
         /// </summary>
         public X509ChainStatusFlags? ChainStatus { get; }
+
+        /// <summary>
+        /// Gets the TLS protocol the transport reported for this handshake, or <see langword="null"/>
+        /// if the transport did not report one. Used only when the protocol was not otherwise
+        /// determined for the attempt (for example, when the handshake failed).
+        /// </summary>
+        public SslProtocols? Protocol { get; }
     }
 }
