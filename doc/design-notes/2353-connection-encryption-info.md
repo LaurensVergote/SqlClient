@@ -191,6 +191,22 @@ handshake or deferred validation fails; certificate fields are not affected by t
 Once login completes the capture is released, so SSL errors on an open connection never alter
 a published snapshot.
 
+### Managed SNI certificate capture
+
+Managed SNI records certificate details from the `RemoteCertificateValidationCallback`
+that runs during the TLS handshake. Capture reuses the callback's inputs and SqlClient's
+existing verdict; it performs no extra validation or network work and doesn't change
+trust decisions, messages, or tracing. Values are reset at the start of every TLS
+handshake and recorded whether the handshake succeeds or fails.
+
+| Field | Source | `null` when |
+| --- | --- | --- |
+| `PresentedServerCertificateHash256` | SHA-256 of the presented leaf certificate's DER encoding (`GetRawCertData()`) | No certificate was presented. Captured even when `TrustServerCertificate` bypasses validation. |
+| `ServerCertificateValidationErrors` | Effective SqlClient verdict: `ServerCertificateMissing`, `ChainError`, `HostNameMismatch` (after `HostNameInCertificate`), `PinnedCertificateMismatch` (`ServerCertificate`); `None` when validation passed | Validation was bypassed, or the configured `ServerCertificate` file could not be read. |
+| `ServerCertificateChainStatus` | Bitwise OR of the original callback chain's `ChainStatus` flags (no chain rebuild); `NoError` when the chain was evaluated cleanly | Validation was bypassed, `ServerCertificate` pinning is used (the chain isn't consulted), no certificate was presented, or the platform reported a chain error without flags. |
+
+Native SNI does not yet report certificate details; those fields remain `null` there.
+
 ## 5. Scope
 
 The API reports negotiated encryption, TLS protocol, the server-presented certificate's
