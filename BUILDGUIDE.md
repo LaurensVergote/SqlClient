@@ -280,7 +280,7 @@ The regression suite also requires Pester 5.7.1:
 
 ```powershell
 dotnet tool run pwsh -NoProfile -Command "Install-Module Pester -RequiredVersion 5.7.1 -Repository PSGallery -Scope CurrentUser -Force -ErrorAction Stop"
-dotnet tool run pwsh -NoProfile -Command 'Import-Module Pester -RequiredVersion 5.7.1; Invoke-Pester -Path ./src/Microsoft.Data.SqlClient.Internal/Logging/test/VersionChecks.Tests.ps1,./eng/pipelines/scripts/tests/VersionCheckPipeline.Tests.ps1 -CI'
+dotnet tool run pwsh -NoProfile -Command 'Import-Module Pester -RequiredVersion 5.7.1; Invoke-Pester -Path ./src/Microsoft.Data.SqlClient.Internal/Logging/test/VersionChecks.Tests.ps1 -CI'
 ```
 
 The parameterized Pester suite packs the real Logging project, creates small family-package fixtures
@@ -288,7 +288,7 @@ in a private local feed, and verifies automatic imports for both direct and
 transitive package consumers. It uses a unique directory under Logging/test and
 removes that directory on completion; no SQL Server is required.
 Add `-Tag Synthetic` to `Invoke-Pester` to run only the metadata and legacy manifest
-matrix, or `-Tag Pipeline` to check pipeline wiring without builds.
+matrix without packing consumer fixtures.
 The PR test stages run the suite in dedicated Logging jobs on the modern Windows
 and Linux platforms. Official/non-official OneBranch runs it in the package-validation
 job. Both invoke Pester directly through a shared YAML step and publish failure-gated

@@ -27,6 +27,7 @@ BeforeDiscovery {
                             OptOut = $false
                         }
                         if ($version -ne $anchorVersion) {
+                            # Reuse each mismatching input to prove the emergency opt-out bypasses it.
                             @{
                                 Kind = $kind; AnchorVersion = $anchorVersion; Id = $id; Version = $version
                                 OptOut = $true
@@ -45,6 +46,7 @@ BeforeDiscovery {
         @{ Kind = 'packages.config' }
         @{ Kind = 'packages.VersionTest.config' }
     )
+    # Exercise the same contracts with Logging referenced directly and through a wrapper package.
     $consumerCases = @(
         foreach ($transitive in @($false, $true)) {
             $mode = if ($transitive) { 'transitive' } else { 'direct' }
@@ -63,6 +65,7 @@ BeforeAll {
     $ErrorActionPreference = 'Stop'
     $targets = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../build/Microsoft.Data.SqlClient.Internal.Logging.targets'))
     $loggingProject = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../src/Logging.csproj'))
+    # Stay inside the repo for the real pack's imports; isolate each run from existing fixtures.
     $work = Join-Path $PSScriptRoot ("version-checks-" + [guid]::NewGuid())
     $previousTmp = $env:TMPDIR
     $previousPackages = $env:NUGET_PACKAGES
@@ -84,6 +87,7 @@ BeforeAll {
         $exitCode = $LASTEXITCODE
         $text = $output -join "`n"
         if ($Mismatch) {
+            # A restore/compiler failure must not masquerade as the expected version diagnostic.
             if ($exitCode -eq 0 -or $text -notmatch 'SQLCLIENT001' -or
                 ($Evidence -and -not $text.Contains($Evidence)) -or
                 $text -match 'MSB4096|error (?!SQLCLIENT001)[A-Z]+\d+') {
@@ -134,6 +138,7 @@ BeforeAll {
         param([string] $Id, [string] $Version, [bool] $Wrapper = $false)
         $directory = Join-Path $work "$Id-$Version"
         New-Item -ItemType Directory $directory | Out-Null
+        # Exact ranges prevent restore from choosing another fixture version to repair a mismatch.
         $dependency = if ($Wrapper) { "<PackageReference Include='$logging' Version='[$anchor]' />" } else { '' }
         Set-Content (Join-Path $directory 'Fixture.csproj') @"
 <Project Sdk="Microsoft.NET.Sdk">
@@ -156,12 +161,14 @@ BeforeAll {
             [bool] $RuntimeOnly = $false, [bool] $ExcludeBuild = $false)
         $directory = Join-Path $work $Name
         New-Item -ItemType Directory $directory | Out-Null
+        # Arrange: the wrapper makes Logging transitive without importing the target by hand.
         $rootId = if ($Transitive) { 'SqlClient.VersionChecks.Wrapper' } else { $logging }
         $rootVersion = if ($Transitive) { '1.0.0' } else { $anchor }
         $exclude = if ($ExcludeBuild) { "ExcludeAssets='build;buildTransitive'" } else { '' }
         $references = "<PackageReference Include='$rootId' Version='[$rootVersion]' $exclude />"
         $installed = if ($Package) { @($Package) } else { $family }
         foreach ($id in $installed) {
+            # Excluding compile assets forces validation to find runtime-only package evidence.
             $runtime = if ($RuntimeOnly) { "ExcludeAssets='compile'" } else { '' }
             $references += "<PackageReference Include='$id' Version='[$FamilyVersion]' $runtime />"
         }
@@ -194,6 +201,7 @@ BeforeAll {
                 throw 'Transitive consumer did not import buildTransitive.'
             }
             if ($Transitive) {
+                # Prove the transitive case was not accidentally turned into a direct reference.
                 $assets = Get-Content (Join-Path $directory 'obj/project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
                 if ($assets.project.frameworks['net10.0'].dependencies.ContainsKey($logging)) {
                     throw 'Transitive test accidentally references Logging directly.'
@@ -213,6 +221,7 @@ BeforeAll {
 }
 
 AfterAll {
+    # Restore process-wide settings even after failures; delete only this run's unique directory.
     $env:TMPDIR = $previousTmp
     $env:NUGET_PACKAGES = $previousPackages
     if ($work -and (Test-Path -LiteralPath $work)) {
@@ -222,11 +231,13 @@ AfterAll {
 
 Describe 'Synthetic family-version validation' -Tag 'Synthetic' {
     It '<Kind>: <Id> <Version> against Logging <AnchorVersion> (opt-out: <OptOut>)' -ForEach $syntheticCases {
+        # Arrange matching/mixed family metadata alongside independently versioned packages.
         $items = @(@{ Id = $logging; Version = $AnchorVersion }, @{ Id = $Id; Version = $Version })
         $items += $excluded | ForEach-Object { @{ Id = $_; Version = '1.0.0' } }
         $mismatch = $Version -ne $AnchorVersion -and -not $OptOut
         $properties = if ($OptOut) { @('-p:SqlClientEnforceFamilyVersions=false') } else { @() }
         $evidence = if ($mismatch) { $Id } else { '' }
+        # Act/assert through the shipped target rather than reproducing its comparison logic.
         Test-Synthetic $synthetic $Kind $items $mismatch $properties $evidence
     }
 
@@ -267,6 +278,7 @@ Describe 'Synthetic family-version validation' -Tag 'Synthetic' {
 }
 
 Describe 'Project-specific legacy manifests' -Tag 'Synthetic', 'LegacyManifest' {
+    # Conflicting manifests expose incorrect selection; matching files alone cannot prove precedence.
     It 'detects mismatches without a fallback packages.config' {
         Test-Synthetic $synthetic 'packages.VersionTest.config' @(
             @{ Id = $logging; Version = '8.0.0' }, @{ Id = $family[0]; Version = '8.0.1' }
@@ -288,6 +300,7 @@ Describe 'Project-specific legacy manifests' -Tag 'Synthetic', 'LegacyManifest' 
     }
 
     It 'does not take a Logging anchor from an inactive fallback' {
+        # Selection applies to the anchor as well as mismatches; never merge the two manifests.
         Test-Synthetic $synthetic 'packages.VersionTest.config' @(
             @{ Id = $family[0]; Version = '8.0.1' }
         ) -FallbackItems @(
@@ -311,6 +324,7 @@ Describe 'Packaged direct and transitive consumers' -Tag 'Consumer' {
         Invoke-CheckedDotnet @('pack', $loggingProject, '-c', 'Release', '-o', $feed,
             "-p:SqlClientPackageVersion=$anchor", '-v:minimal', '-nologo')
         $packageFile = Join-Path $feed "$logging.$anchor.nupkg"
+        # Install isolation boundaries only after the real pack has consumed repository settings.
         # Stop ancestor props/targets/CPM and user package caches/feeds from affecting fixture consumers.
         Set-Content (Join-Path $work 'Directory.Build.props') '<Project />'
         Set-Content (Join-Path $work 'Directory.Build.targets') '<Project />'
@@ -344,6 +358,7 @@ Describe 'Packaged direct and transitive consumers' -Tag 'Consumer' {
     }
 
     It 'validates <Name>' -ForEach $consumerCases {
+        # Restore and build a fresh consumer so generated imports and resolved assets are real.
         Test-Consumer $Name $Transitive $Version $Package $Mismatch $Properties $RuntimeOnly $ExcludeBuild
     }
 }
