@@ -85,9 +85,9 @@ jobs:
       - name: ob_outputDirectory
         value: '$(JOB_OUTPUT)'
 
-      # This job inspects already-built packages and produces no assemblies, so it has nothing for
-      # APIScan or BinSkim to scan and no shipping component to describe in an SBOM.  The build
-      # jobs cover all three for the packages they produce.
+      # This job inspects already-built packages and builds only validation tools/test fixtures,
+      # so it has no shipping assemblies for APIScan, BinSkim, or SBOM. The build jobs cover
+      # all three for the packages they produce.
       - name: ob_sdl_apiscan_enabled
         value: false
       - name: ob_sdl_binskim_enabled
@@ -163,6 +163,12 @@ jobs:
 
       # PackageValidator targets net10.0, which the repo's global.json already pins.
       - template: /eng/pipelines/common/steps/install-dotnet.yml@self
+
+      - template: /eng/pipelines/common/steps/restore-dotnet-tools.yml@self
+
+      - template: /eng/pipelines/common/steps/test-family-versions.yml@self
+        parameters:
+          testResultsPath: '$(JOB_OUTPUT)/test_results/family-versions.xml'
 
       - template: /eng/pipelines/onebranch/steps/validate-packages-step.yml@self
         parameters:

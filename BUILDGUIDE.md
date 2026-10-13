@@ -297,7 +297,8 @@ Installed Logging, Abstractions, SqlClient, Extensions.Azure, and AKV packages
 must match the resolved Logging version exactly, including prerelease labels.
 Optional family packages are not required; independently versioned
 Microsoft.SqlServer.Server and native SNI packages are excluded. The target uses
-resolved compile/runtime package metadata or legacy `packages.config`, not
+resolved compile/runtime package metadata or the active legacy `packages.config`
+(including `packages.<project-name>.config`), not
 assembly versions or declared version ranges, and skips design-time builds.
 Missing version metadata or a missing Logging anchor is not guessed.
 
@@ -309,16 +310,24 @@ project). It suppresses this check only, not incompatibilities.
 Ordinary project references do not propagate NuGet buildTransitive assets:
 Project-mode repository builds are not validated by this consumer target.
 
-Run the focused synthetic and isolated NuGet consumer regression suite with:
+Run `dotnet tool restore` first to restore the repository's pinned PowerShell tool.
+The regression suite also requires Pester 5.7.1:
 
 ```powershell
-pwsh -NoProfile -File src/Microsoft.Data.SqlClient.Internal/Logging/test/RunVersionChecks.ps1
+dotnet tool run pwsh -NoProfile -Command "Install-Module Pester -RequiredVersion 5.7.1 -Repository PSGallery -Scope CurrentUser -Force -ErrorAction Stop"
+dotnet tool run pwsh -NoProfile -Command 'Import-Module Pester -RequiredVersion 5.7.1; Invoke-Pester -Path ./src/Microsoft.Data.SqlClient.Internal/Logging/test/VersionChecks.Tests.ps1 -CI'
 ```
 
-The suite packs the real Logging project, creates small family-package fixtures
+The parameterized Pester suite packs the real Logging project, creates small family-package fixtures
 in a private local feed, and verifies automatic imports for both direct and
 transitive package consumers. It uses a unique directory under Logging/test and
 removes that directory on completion; no SQL Server is required.
+Add `-Tag Synthetic` to `Invoke-Pester` to run only the metadata and legacy manifest
+matrix without packing consumer fixtures.
+The PR test stages run the suite in dedicated Logging jobs on the modern Windows
+and Linux platforms. Official/non-official OneBranch runs it in the package-validation
+job. Both invoke Pester directly through a shared YAML step and publish failure-gated
+NUnit results; no PowerShell runner script is required.
 
 Just like building and testing the various projects in this repository, packaging the projects into NuGet packages is
 also handled by `build.proj`. From the root of your repository, run `dotnet build` against `build.proj` with a pack target,
@@ -420,6 +429,26 @@ adding a separate `src/` root without source-control metadata can remap tracked 
 while Source Link only maps `/_/`. NuGet Package Explorer reports this as
 **Contains untracked sources (obj)** for both Source Link and Deterministic, even when all `obj`
 sources are embedded and the compiler's deterministic flag is enabled.
+
+## OneBranch Validation
+
+The non-official OneBranch pipeline defaults **Fail on validation errors**
+(`failOnValidationError`) to `false`. Localization, XML documentation, and package
+validation still run, but findings are reported as warnings so pending translations
+do not block the rest of a development build. Select `true` at queue time for a
+strict validation run. Official builds always use `true`.
+
+This flag is independent of **Fail on SDL errors** (`failOnSdlError`). Neither flag
+turns missing or malformed validation inputs into success. Localization report-only
+mode marks findings as `SucceededWithIssues`; it does not claim that translations
+passed validation.
+
+Localization callers explicitly supply the resource directory and allowlist section.
+The driver uses `AllowedEnglishValueMatches` in
+[LocalizationValidationAllowlist.json](.config/LocalizationValidationAllowlist.json).
+The validator supports independent sections for additional resource owners without
+mixing their approved exceptions. Do not allowlist untranslated development strings
+merely to make validation pass.
 
 ## Versioning
 

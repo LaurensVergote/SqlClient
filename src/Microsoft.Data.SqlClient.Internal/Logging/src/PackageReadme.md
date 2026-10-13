@@ -37,7 +37,10 @@ Versions must match exactly, including prerelease labels; a mismatch fails the
 build with **SQLCLIENT001**. Upgrade all installed family packages together.
 Historical extensions numbered `1.0.0` are not mapped to driver `7.0.0`/`7.0.1`.
 The check uses resolved compile/runtime asset metadata for PackageReference and
-installed versions in `packages.config` for legacy consumers. It does not check
+installed versions in the active `packages.config` for legacy consumers. A
+`packages.<project-name>.config` file takes precedence over `packages.config`;
+spaces in the project name are replaced with underscores, matching NuGet.
+It does not check
 assembly versions, restore ranges, or API compatibility. Assets missing version
 metadata and builds without a Logging version anchor are skipped. Design-time
 builds are skipped.
