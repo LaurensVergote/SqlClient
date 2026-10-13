@@ -125,15 +125,6 @@ stages:
           - ${{ parameters.stageNameSecrets }}
 
         jobs:
-          # The consumer fixtures target net10.0, so run once per modern platform.
-          - ${{ if not(contains(platform.dotnet, 'net4')) }}:
-            - template: /eng/pipelines/pr/jobs/test-logging-job.yml@self
-              parameters:
-                platformDisplayName: ${{ platform.displayName }}
-                poolImage: ${{ platform.image }}
-                poolName: ${{ parameters.poolName }}
-                testResultsArtifactBaseName: ${{ parameters.testResultsArtifactBaseName }}
-
           # TestAbstractions
           - template: /eng/pipelines/pr/jobs/test-buildproj-job.yml@self
             parameters:

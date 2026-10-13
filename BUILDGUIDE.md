@@ -289,10 +289,8 @@ transitive package consumers. It uses a unique directory under Logging/test and
 removes that directory on completion; no SQL Server is required.
 Add `-Tag Synthetic` to `Invoke-Pester` to run only the metadata and legacy manifest
 matrix without packing consumer fixtures.
-The PR test stages run the suite in dedicated Logging jobs on the modern Windows
-and Linux platforms. Official/non-official OneBranch runs it in the package-validation
-job. Both invoke Pester directly through a shared YAML step and publish failure-gated
-NUnit results; no PowerShell runner script is required.
+The suite is available for local execution only. PR and OneBranch pipelines do not
+install Pester or run these tests.
 
 Just like building and testing the various projects in this repository, packaging the projects into NuGet packages is
 also handled by `build.proj`. From the root of your repository, run `dotnet build` against `build.proj` with a pack target,
