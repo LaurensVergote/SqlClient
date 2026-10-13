@@ -32,6 +32,7 @@ Add `-Output Detailed` to see per-test results.
 | `Install-DockerCli.macos.Tests.ps1` | `Install-DockerCli.macos.ps1` — Homebrew bottle selection for the macOS docker CLI. |
 | `Pipeline-Arguments.Tests.ps1` | PR build/pack/test argument quoting and the repository's CI variable naming convention. |
 | `Build-Orchestration.Tests.ps1` | MSBuild test filters, dependency-pack ordering/version forwarding, local restore freshness, and generated command-line argument quoting. |
+| `VersionCheckPipeline.Tests.ps1` | Family-version suite placement, direct Pester invocation, pinned tooling, and failure-gated results in PR Logging tests and OneBranch package validation. |
 
 The localization and Docker helper tests mock `git`, `tar`, `Invoke-RestMethod`,
 and `Invoke-WebRequest`, so they do not access the network or modify a real

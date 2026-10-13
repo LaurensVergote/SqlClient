@@ -262,7 +262,8 @@ Installed Logging, Abstractions, SqlClient, Extensions.Azure, and AKV packages
 must match the resolved Logging version exactly, including prerelease labels.
 Optional family packages are not required; independently versioned
 Microsoft.SqlServer.Server and native SNI packages are excluded. The target uses
-resolved compile/runtime package metadata or legacy `packages.config`, not
+resolved compile/runtime package metadata or the active legacy `packages.config`
+(including `packages.<project-name>.config`), not
 assembly versions or declared version ranges, and skips design-time builds.
 Missing version metadata or a missing Logging anchor is not guessed.
 
@@ -274,16 +275,24 @@ project). It suppresses this check only, not incompatibilities.
 Ordinary project references do not propagate NuGet buildTransitive assets:
 Project-mode repository builds are not validated by this consumer target.
 
-Run the focused synthetic and isolated NuGet consumer regression suite with:
+Run `dotnet tool restore` first to restore the repository's pinned PowerShell tool.
+The regression suite also requires Pester 5.7.1:
 
 ```powershell
-pwsh -NoProfile -File src/Microsoft.Data.SqlClient.Internal/Logging/test/RunVersionChecks.ps1
+dotnet tool run pwsh -NoProfile -Command "Install-Module Pester -RequiredVersion 5.7.1 -Repository PSGallery -Scope CurrentUser -Force -ErrorAction Stop"
+dotnet tool run pwsh -NoProfile -Command 'Import-Module Pester -RequiredVersion 5.7.1; Invoke-Pester -Path ./src/Microsoft.Data.SqlClient.Internal/Logging/test/VersionChecks.Tests.ps1,./eng/pipelines/scripts/tests/VersionCheckPipeline.Tests.ps1 -CI'
 ```
 
-The suite packs the real Logging project, creates small family-package fixtures
+The parameterized Pester suite packs the real Logging project, creates small family-package fixtures
 in a private local feed, and verifies automatic imports for both direct and
 transitive package consumers. It uses a unique directory under Logging/test and
 removes that directory on completion; no SQL Server is required.
+Add `-Tag Synthetic` to `Invoke-Pester` to run only the metadata and legacy manifest
+matrix, or `-Tag Pipeline` to check pipeline wiring without builds.
+The PR test stages run the suite in dedicated Logging jobs on the modern Windows
+and Linux platforms. Official/non-official OneBranch runs it in the package-validation
+job. Both invoke Pester directly through a shared YAML step and publish failure-gated
+NUnit results; no PowerShell runner script is required.
 
 Just like building and testing the various projects in this repository, packaging the projects into NuGet packages is
 also handled by `build.proj`. From the root of your repository, run `dotnet build` against `build.proj` with a pack target,

@@ -1,3 +1,7 @@
+<!--
+  Licensed to the .NET Foundation under one or more agreements. The .NET Foundation licenses this
+  file to you under the MIT license.
+-->
 <Project>
   <!-- Logging owns the consumer check and ships it in build/ and buildTransitive/.
        Only installed members of the lockstep family are checked. SqlServer.Server and native
@@ -36,18 +40,23 @@
 
     <!-- Legacy packages.config consumers import build/ explicitly through NuGet installation.
          Read installed versions from the manifest, independently of assembly reference metadata. -->
-    <XmlPeek XmlInputPath="$(MSBuildProjectDirectory)/packages.config"
+    <PropertyGroup>
+      <!-- Match NuGet: prefer the project-specific manifest, replacing spaces with underscores. -->
+      <_SqlClientConfigPath>$(MSBuildProjectDirectory)/packages.$(MSBuildProjectName.Replace(' ', '_')).config</_SqlClientConfigPath>
+      <_SqlClientConfigPath Condition="!Exists('$(_SqlClientConfigPath)')">$(MSBuildProjectDirectory)/packages.config</_SqlClientConfigPath>
+    </PropertyGroup>
+    <XmlPeek XmlInputPath="$(_SqlClientConfigPath)"
              Query="/packages/package[@id='Microsoft.Data.SqlClient.Internal.Logging']/@version"
-             Condition="Exists('$(MSBuildProjectDirectory)/packages.config')">
+             Condition="Exists('$(_SqlClientConfigPath)')">
       <Output TaskParameter="Result" PropertyName="_SqlClientConfigExpectedVersion" />
     </XmlPeek>
-    <XmlPeek XmlInputPath="$(MSBuildProjectDirectory)/packages.config"
+    <XmlPeek XmlInputPath="$(_SqlClientConfigPath)"
              Query="/packages/package[(@id='Microsoft.Data.SqlClient.Internal.Logging' or @id='Microsoft.Data.SqlClient.Extensions.Abstractions' or @id='Microsoft.Data.SqlClient' or @id='Microsoft.Data.SqlClient.Extensions.Azure' or @id='Microsoft.Data.SqlClient.AlwaysEncrypted.AzureKeyVaultProvider') and @version!='$(_SqlClientConfigExpectedVersion)']"
              Condition="'$(_SqlClientConfigExpectedVersion)' != ''">
       <Output TaskParameter="Result" ItemName="_SqlClientConfigMismatch" />
     </XmlPeek>
     <Error Code="SQLCLIENT001"
            Condition="'@(_SqlClientConfigMismatch)' != ''"
-           Text="SqlClient family version mismatch in packages.config: %(_SqlClientConfigMismatch.Identity), but Logging is $(_SqlClientConfigExpectedVersion). Upgrade all installed family packages together, including prerelease labels. Emergency opt-out: SqlClientEnforceFamilyVersions=false." />
+           Text="SqlClient family version mismatch in $(_SqlClientConfigPath): %(_SqlClientConfigMismatch.Identity), but Logging is $(_SqlClientConfigExpectedVersion). Upgrade all installed family packages together, including prerelease labels. Emergency opt-out: SqlClientEnforceFamilyVersions=false." />
   </Target>
 </Project>
